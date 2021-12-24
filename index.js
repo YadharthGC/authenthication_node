@@ -238,6 +238,9 @@ app.post("/fpass", async function (req, res) {
         let del = await db
           .collection("reset")
           .findOneAndDelete({ toke: user.toke });
+        res.json({
+          message: "password is changed",
+        });
         console.log("fullok");
       } else {
         res.json({
