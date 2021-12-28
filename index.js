@@ -8,10 +8,10 @@ const mongoclient = mongodb.MongoClient;
 //const url = "mongodb://localhost:27017";
 const url =
   "mongodb+srv://ganesh:chitra@cluster0.2pjhw.mongodb.net/booking?retryWrites=true&w=majority";
-
+const shortid = require("shortid");
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const nodemailer = require("nodemailer");
-const port = process.env.PORT || 3003;
+const port = process.env.PORT || 3002;
 const transporter = nodemailer.createTransport({
   service: "Hotmail",
   auth: {
@@ -20,15 +20,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// create reusable transporter object using the default SMTP transport
-// const transporter = nodemailer.createTransport({
-//   host: "smtp.ethereal.email",
-//   port: 587,
-//   auth: {
-//     user: "bettye.thompson38@ethereal.email",
-//     pass: "2RgaAx8x2b3T4wfxBf",
-//   },
-// });
 app.use(express.json());
 app.use(
   cors({
@@ -55,9 +46,7 @@ function authenthicate(req, res, next) {
             console.log(error);
             console.log("error1");
           } else {
-            console.log(decoded);
-            req.userid = decoded.userid;
-            console.log(req.userid);
+            req.userid = decoded.id;
             next();
           }
         }
@@ -89,10 +78,15 @@ app.post("/register", async function (req, res) {
       from: "newnode12345@hotmail.com",
       to: `${req.body.gmail}`,
       subject: "Verify your account ✔",
-      html: `<b>${req.body.vcode}</b>`,
+      html: `Your Account verification code is <b>${req.body.vcode}</b>`,
     });
     console.log("Message sent: %s", info.messageId);
     let post = await db.collection("registers").insertOne(req.body);
+    res.json({
+      message:
+        "Your account is successfully registered.Activation code is sent to email",
+      status: "true",
+    });
   } catch (error) {
     console.log(error);
     console.log("register error");
@@ -110,32 +104,30 @@ app.post("/login", async function (req, res) {
     if (user) {
       if (user.verified) {
         let match = await bcrypt.compareSync(req.body.password, user.password);
-        console.log(match);
+
         if (match) {
           let token = jwt.sign({ id: user._id }, "RQEU8dxgqMpuK73s");
+          console.log(token);
           res.json({
-            message: true,
+            message: `welcome ${req.body.gmail}`,
+            status: true,
             token,
           });
         } else {
           res.json({
             message: "password incorrect",
           });
-          console.log("password incorrect");
         }
       } else {
         res.json({
           message: "gmail is not verified",
           id: user._id,
         });
-        console.log("gmail not verified");
-        console.log(user._id);
       }
     } else {
       res.json({
         message: "gmail not registered",
       });
-      console.log("gmail not registered");
     }
   } catch (error) {
     console.log(error);
@@ -151,9 +143,9 @@ app.post("/code", async function (req, res) {
     let get = await db.collection("registers").findOne({
       _id: mongodb.ObjectId(req.body.did),
     });
-    console.log(get);
-    await parseInt(req.body.code);
-    if (req.body.code == get.vcode) {
+    console.log(get.vcode, req.body.code);
+    let c = await parseInt(req.body.code);
+    if (c === get.vcode) {
       console.log("yes");
       let put = await db.collection("registers").findOneAndUpdate(
         {
@@ -169,11 +161,15 @@ app.post("/code", async function (req, res) {
         message: "Account verified",
       });
     } else {
+      console.log("not working");
       res.json({
         message: "wrong code",
       });
     }
-  } catch (error) {}
+  } catch (error) {
+    console.log(error);
+    console.log("code error");
+  }
 });
 
 app.post("/fmail", async function (req, res) {
@@ -257,6 +253,65 @@ app.post("/fpass", async function (req, res) {
     console.log("fpass error");
   }
 });
+//////////////////////////////////////////////
+////////////////////////////////
+///////////////URL//////////////
+app.post("/url", [authenthicate], async function (req, res) {
+  try {
+    let client = await mongoclient.connect(url);
+    req.body.userid = req.userid;
+    let db = client.db("urls");
+    req.body.clicks = 0;
+    var s = shortid.generate(req.body.url);
+    req.body.shorts = s;
+    console.log(req.body);
+    let post = await db.collection("url").insertOne(req.body);
+    await client.close();
+    res.json({
+      message: "URL will be shortened",
+    });
+  } catch (error) {
+    console.log(error);
+    console.log("url is not shortened");
+  }
+});
+
+app.get("/shorts", [authenthicate], async function (req, res) {
+  try {
+    let client = await mongoclient.connect(url);
+    let db = client.db("urls");
+    let get = await db.collection("url").find({ userid: req.userid }).toArray();
+    res.json(get);
+    await client.close();
+  } catch (error) {
+    console.log(error);
+    console.log("url is not shortened");
+  }
+});
+
+app.get("/:did", async function (req, res) {
+  try {
+    let client = await mongoclient.connect(url);
+    let db = client.db("urls");
+    let v = req.params.did;
+    console.log(v);
+    let get = await db.collection("url").findOne({ shorts: v });
+    console.log(get);
+    let put = await db.collection("url").findOneAndUpdate(
+      { shorts: req.params.did },
+      {
+        $set: {
+          clicks: get.clicks + 1,
+        },
+      }
+    );
+    res.redirect(get.url);
+    await client.close();
+  } catch (error) {
+    console.log(error);
+  }
+});
+
 //////////////////////////////
 app.listen(port, function () {
   console.log(`App is Running in ${port}`);
