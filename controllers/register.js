@@ -1,7 +1,10 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const register = require("../models/register");
-var val = Math.floor(1000 + Math.random() * 9000);
+var val;
+var valz = () => {
+  val = Math.floor(1000 + Math.random() * 9000);
+};
 const nodemailer = require("nodemailer");
 const tokens = require("../models/tokens");
 const url = require("../models/url");
@@ -40,6 +43,7 @@ exports.authenthicate = async (req, res, next) => {
   }
 };
 exports.registeruser = async (req, res) => {
+  valz();
   let get = await register.findOne({
     gmail: req.body.gmail,
   });
