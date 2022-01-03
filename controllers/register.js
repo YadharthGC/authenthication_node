@@ -185,7 +185,7 @@ exports.fmailuser = async (req, res) => {
         from: "newnode12345@hotmail.com",
         to: `${req.body.gmail}`,
         subject: "Forgot password",
-        html: `use this link to change your password http://localhost:3000/${token}/${ids}`,
+        html: `use this link to change your password https://yadharthauth.herokuapp.com/${token}/${ids}`,
       });
       console.log("Message sent: %s", info.messageId);
       res.json({
